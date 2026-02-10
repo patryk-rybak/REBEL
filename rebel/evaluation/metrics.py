@@ -35,7 +35,8 @@ def calculate_asr(
         ... )
     """
     if len(predictions) != len(ground_truth):
-        raise ValueError("Predictions and ground truth must have same length")
+        raise ValueError(f"Predictions and ground truth must have same length "
+                        f"(got {len(predictions)} and {len(ground_truth)})")
     
     # TODO: Implement actual ASR calculation
     # This should compare predictions with ground truth

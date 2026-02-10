@@ -15,7 +15,6 @@ setup(
     name="rebel-unlearning",
     version="0.1.0",
     author="Patryk Rybak, Paweł Batorski, Paul Swoboda, Przemysław Spurek",
-    author_email="",
     description="REBEL: Hidden Knowledge Recovery via Evolutionary-Based Evaluation Loop",
     long_description=long_description,
     long_description_content_type="text/markdown",

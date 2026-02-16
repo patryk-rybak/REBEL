@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+title: "REBEL: Hidden Knowledge Recovery via Evolutionary-Based Evaluation Loop"
+message: "If you use this code, please cite the paper."
+type: software
+authors:
+  - given-names: "Patryk"
+    family-names: "Rybak"
+  - given-names: "Paweł"
+    family-names: "Batorski"
+  - given-names: "Paul"
+    family-names: "Swoboda"
+  - given-names: "Przemysław"
+    family-names: "Spurek"
+identifiers:
+  - type: url
+    value: "https://arxiv.org/abs/2602.06248"
+preferred-citation:
+  type: article
+  title: "REBEL: Hidden Knowledge Recovery via Evolutionary-Based Evaluation Loop"
+  authors:
+    - given-names: "Patryk"
+      family-names: "Rybak"
+    - given-names: "Paweł"
+      family-names: "Batorski"
+    - given-names: "Paul"
+      family-names: "Swoboda"
+    - given-names: "Przemysław"
+      family-names: "Spurek"
+  year: 2026
+  doi: "10.48550/arXiv.2602.06248"

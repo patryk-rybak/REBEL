@@ -106,7 +106,7 @@ From the repo root, run:
 ### Leak@
 ```bash
 python -m root.main leak \
-  --data-path tofu_forget10.jsonl \
+  --data-path data/tofu_forget10.jsonl \
   --results-dir results/leak_run \
   --model-id open-unlearning/unlearn_tofu_Llama-3.2-1B-Instruct_forget10_SimNPO_lr2e-05_b4.5_a1_d0_g0.125_ep10\
   --tokenizer-id open-unlearning/unlearn_tofu_Llama-3.2-1B-Instruct_forget10_SimNPO_lr2e-05_b4.5_a1_d0_g0.125_ep10\
@@ -117,7 +117,7 @@ python -m root.main leak \
 ### REBEL
 ```bash
 python -m root.main rebel \
-  --data-path wmdp_bio_200.jsonl \
+  --data-path data/wmdp_bio_200.jsonl \
   --results-dir results/rebel_run \
   --model-id OPTML-Group/SimNPO-WMDP-llama3-8b-instruct \
   --tokenizer-id OPTML-Group/SimNPO-WMDP-llama3-8b-instruct \

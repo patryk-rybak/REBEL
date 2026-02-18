@@ -14,9 +14,8 @@ We validate our framework on subsets of the **TOFU** and **WMDP** benchmarks, ev
 ## Setup
 
 ### Prerequisites
-- Linux, Python 3.10+.
+- Python 3.10+.
 - NVIDIA GPU with CUDA.
-- vLLM requires CUDA and will not run on CPU-only nodes.
 
 ### Install
 Create a venv and install dependencies:
@@ -24,7 +23,7 @@ Create a venv and install dependencies:
 > #### CUDA compatibility note
 > vLLM is very sensitive to CUDA version mismatches. If you see CUDA or GPU kernel errors, re-check that both vLLM and PyTorch are built for the same CUDA version.
 > 
-> It can help to uninstall `torch`, `torchvision`, and `torchaudio` after installing vLLM (only `torch` is actually used in this code), then reinstall `torch` for your cluster’s CUDA version.
+> It can help to uninstall `torch` after installing vLLM, then reinstall it for your cluster’s CUDA version.
 
 ```bash
 python -m venv .venv
@@ -34,11 +33,10 @@ pip install --upgrade pip
 # 1) Install vLLM first
 pip install vllm
 
-# 2) Remove CUDA-sensitive PyTorch packages that can conflict with vLLM builds
-#    (torch is required, torchvision/torchaudio are not used in this code)
-pip uninstall -y torch torchvision torchaudio
+# 2) Remove PyTorch that may cause conflict
+pip uninstall -y torch 
 
-# 3) Install PyTorch matching your CUDA toolchain
+# 3) Install PyTorch matching your CUDA toolchain and a required version by vLLM
 # Example for CUDA 12.1 (adjust as needed for your environment):
 pip install torch --index-url https://download.pytorch.org/whl/cu121
 ```
@@ -50,24 +48,23 @@ This code uses:
 - Hacker/Judge: Qwen2.5-7B-Instruct (vLLM).
 
 Make sure you have access to these models and set your HF token:
-
 ```bash
-export HUGGINGFACE_HUB_TOKEN=your_token_here
+pip install huggingface_hub
+huggingface-cli login
+```
+
+For a faster model fetching do the following:
+```bash
+pip install hf_transfer
+export HF_HUB_ENABLE_HF_TRANSFER=1
 ```
 
 ## Configuration
 You can set environment variables to control vLLM:
-
-- `VLLM_DTYPE` (default: `auto`)
-- `VLLM_TP` (tensor parallel size, default: `2`)
-- `GPU_MEMORY_UTILIZATION` (default: `0.45`)
-
-Example:
-
 ```bash
-export VLLM_DTYPE=auto
-export VLLM_TP=2
-export GPU_MEMORY_UTILIZATION=0.70
+export VLLM_DTYPE=auto (default)
+export VLLM_TP=2 (default)
+export GPU_MEMORY_UTILIZATION=0.45 (default)
 ```
 
 ## Data formats
@@ -137,6 +134,14 @@ The `--results-dir` will include:
     - `zero_generation/` is a directory equivalent to `whole_generation`, but its results are divided into separate files according to the corresponding data indices.
 
 You can parse these files to compute Attack Success Rate (% of leaked examples).
+
+## Troubleshooting
+
+If you hit:
+```
+RuntimeError: Failed to load LLM with any of the provided tokenizers.
+```
+verify `VLLM_TP` and available VRAM: use `export VLLM_TP=1` on a single GPU, or set `VLLM_TP` to the number of GPUs used for tensor parallelism (e.g., `export VLLM_TP=2` for two GPUs). Also ensure sufficient free VRAM, especially for the larger judge/hacker model (`Qwen/Qwen2.5-7B-Instruct`), and adjust `GPU_MEMORY_UTILIZATION` accordingly.
 
 ## Extending
 - To add a new target model not based on Llama2 or Llama3, implement a class similar to `LlamaTarget` and update the target factory.

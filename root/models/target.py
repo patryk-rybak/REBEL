@@ -61,11 +61,13 @@ class TargetLLM(BaseLLM):
         tensor_parallel_size: int = config.TP,
     ):
 
-        # Build fallback tokenizers list based on target type
+        # Build fallback tokenizers list based on target type.
+        # Note: Phi models don't have a fallback - the LocusLab tokenizer at
+        # checkpoint-60 should be used directly (microsoft/phi-1_5 won't work
+        # because we need to use the same revision for model and tokenizer).
         fallback_tokenizers = {
             "Llama-3": "meta-llama/Llama-3.2-1B-Instruct",
             "Llama-2": "meta-llama/Llama-2-7b-chat-hf",
-            "Phi": "microsoft/phi-1_5",
         }
         fallback = fallback_tokenizers.get(target_type)
         tokenizers_ids = [tokenizer_id]
@@ -107,8 +109,12 @@ class TargetLLM(BaseLLM):
         LocusLab TOFU Phi models require a specific revision (branch) to load.
         """
         if self.target_type == "Phi":
-            # Phi TOFU models require revision parameter for model weights,
-            # but tokenizer should use default branch (no revision)
+            # Phi TOFU models require revision parameter for model weights.
+            # DO NOT use trust_remote_code=True - the LocusLab model's config.json
+            # has an outdated auto_map pointing to microsoft/phi-1_5 which no longer
+            # has the custom code files (they were removed after Phi was added to
+            # transformers natively). Using model_type="phi" with the built-in
+            # PhiForCausalLM from transformers works correctly.
             if not self.llm:
                 last_err = None
                 for tok in self.tokenizers_ids:
@@ -117,12 +123,11 @@ class TargetLLM(BaseLLM):
                             model=self.model_id,
                             tokenizer=tok,
                             revision=PHI_TOFU_REVISION,
-                            tokenizer_revision=None,  # Use default branch for tokenizer
-                            code_revision=None,  # Use default branch for architecture code from microsoft/phi-1_5
+                            tokenizer_revision=PHI_TOFU_REVISION,
                             dtype=self.dtype,
                             tensor_parallel_size=self.tensor_parallel_size,
                             gpu_memory_utilization=self.gpu_mem_util,
-                            trust_remote_code=True,
+                            trust_remote_code=False,
                             enable_prefix_caching=True,
                         )
                         self.tokenizer_id = tok
@@ -142,7 +147,7 @@ class TargetLLM(BaseLLM):
             if not self.tokenizer:
                 self.tokenizer = AutoTokenizer.from_pretrained(
                     self.tokenizer_id,
-                    trust_remote_code=True,
+                    revision=PHI_TOFU_REVISION,
                 )
             print(
                 f"Model loaded: {self.model_id} (revision: {PHI_TOFU_REVISION})",

@@ -118,6 +118,7 @@ class TargetLLM(BaseLLM):
                             tokenizer=tok,
                             revision=PHI_TOFU_REVISION,
                             tokenizer_revision=None,  # Use default branch for tokenizer
+                            code_revision=None,  # Use default branch for architecture code from microsoft/phi-1_5
                             dtype=self.dtype,
                             tensor_parallel_size=self.tensor_parallel_size,
                             gpu_memory_utilization=self.gpu_mem_util,

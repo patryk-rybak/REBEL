@@ -44,8 +44,10 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121
 
 ### Model access
 This code uses:
-- Target: Llama-2 or Llama-3 family models (vLLM).
+- Target: Llama-2, Llama-3, or Phi family models (vLLM).
 - Hacker/Judge: Qwen2.5-7B-Instruct (vLLM).
+
+> **Note on Phi models:** Phi models use the `Question: {q}\nAnswer:` format matching the original TOFU training configuration. LocusLab TOFU Phi models (e.g., `locuslab/phi_grad_diff_1e-05_forget10`) are loaded with a hardcoded revision `checkpoint-60` since these models store checkpoints in separate branches.
 
 Make sure you have access to these models and set your HF token:
 ```bash
@@ -144,7 +146,7 @@ RuntimeError: Failed to load LLM with any of the provided tokenizers.
 verify `VLLM_TP` and available VRAM: use `export VLLM_TP=1` on a single GPU, or set `VLLM_TP` to the number of GPUs used for tensor parallelism (e.g., `export VLLM_TP=2` for two GPUs). Also ensure sufficient free VRAM, especially for the larger judge/hacker model (`Qwen/Qwen2.5-7B-Instruct`), and adjust `GPU_MEMORY_UTILIZATION` accordingly.
 
 ## Extending
-- To add a new target model not based on Llama2 or Llama3, implement a class similar to `LlamaTarget` and update the target factory.
+- To add a new target model, update `_determine_target_model_type()` in `target.py` to detect your model, and add the appropriate chat template in `_format_chat()`. Currently supported: Llama-2, Llama-3, Phi (all Phi variants use Phi-1.5 format).
 - To support a new dataset, add dataset-specific prompting and evaluation logic for `data_kind=other`.
 
 ## Citation

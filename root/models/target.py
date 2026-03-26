@@ -5,10 +5,14 @@ Wraps the target model and formats prompts. Adds WMDP scoring and a factory to b
 from typing import List
 
 import numpy as np
-from vllm import SamplingParams
+from transformers import AutoTokenizer
+from vllm import LLM, SamplingParams
 
 from root import config
 from root.models.base import BaseLLM
+
+# Hardcoded revision for LocusLab TOFU Phi models (stored in branches)
+PHI_TOFU_REVISION = "checkpoint-60"
 
 
 def _determine_target_model_type(model_id: str) -> str:
@@ -19,14 +23,19 @@ def _determine_target_model_type(model_id: str) -> str:
         return "Llama-2"
     elif "llama-3" in model_id_lower or "llama3" in model_id_lower:
         return "Llama-3"
+    elif "phi" in model_id_lower:
+        # All Phi models use Question/Answer format matching TOFU training.
+        # We default to Phi-1.5 tokenizer as it works for LocusLab TOFU unlearning models.
+        return "Phi"
     else:
         return "Other"
 
 
 def build_target(model_id: str, tokenizer_id: str, data_kind: str) -> BaseLLM:
     target_type = _determine_target_model_type(model_id)
-    if target_type == "Llama-2" or target_type == "Llama-3":
-        return LlamaTarget(
+    supported_types = ("Llama-2", "Llama-3", "Phi")
+    if target_type in supported_types:
+        return TargetLLM(
             model_id=model_id,
             tokenizer_id=tokenizer_id,
             data_kind=data_kind,
@@ -34,13 +43,14 @@ def build_target(model_id: str, tokenizer_id: str, data_kind: str) -> BaseLLM:
         )
     else:
         raise ValueError(
-            f"Unsupported target model type: {target_type}"
-            ">>>>"
-            "Create class based in LlamaTarget and override _format_llama... method to match your model."
+            f"Unsupported target model type: {target_type}. "
+            f"Supported types: {supported_types}. "
+            "To add a new model, update _determine_target_model_type() and add "
+            "the appropriate chat template in _format_chat()."
         )
 
 
-class LlamaTarget(BaseLLM):
+class TargetLLM(BaseLLM):
     def __init__(
         self,
         model_id: str,
@@ -51,14 +61,16 @@ class LlamaTarget(BaseLLM):
         tensor_parallel_size: int = config.TP,
     ):
 
-        tokenizers_ids = [
-            tokenizer_id,
-            (
-                "meta-llama/Llama-3.2-1B-Instruct"
-                if target_type == "Llama-3"
-                else "meta-llama/Llama-2-7b-chat-hf"
-            ),
-        ]
+        # Build fallback tokenizers list based on target type
+        fallback_tokenizers = {
+            "Llama-3": "meta-llama/Llama-3.2-1B-Instruct",
+            "Llama-2": "meta-llama/Llama-2-7b-chat-hf",
+            "Phi": "microsoft/phi-1_5",
+        }
+        fallback = fallback_tokenizers.get(target_type)
+        tokenizers_ids = [tokenizer_id]
+        if fallback and fallback != tokenizer_id:
+            tokenizers_ids.append(fallback)
 
         super().__init__(
             model_id=model_id,
@@ -89,7 +101,56 @@ class LlamaTarget(BaseLLM):
                 tid: i for i, tid in enumerate(self.choices_tokens)
             }
 
-    def _format_llama_chat(self, user_text: str) -> str:
+    def load(self):
+        """
+        Override base load() to support revision for Phi models.
+        LocusLab TOFU Phi models require a specific revision (branch) to load.
+        """
+        if self.target_type == "Phi":
+            # Phi TOFU models require revision parameter
+            if not self.llm:
+                last_err = None
+                for tok in self.tokenizers_ids:
+                    try:
+                        self.llm = LLM(
+                            model=self.model_id,
+                            tokenizer=tok,
+                            revision=PHI_TOFU_REVISION,
+                            dtype=self.dtype,
+                            tensor_parallel_size=self.tensor_parallel_size,
+                            gpu_memory_utilization=self.gpu_mem_util,
+                            trust_remote_code=True,
+                            enable_prefix_caching=True,
+                        )
+                        self.tokenizer_id = tok
+                        last_err = None
+                        break
+                    except Exception as e:
+                        last_err = e
+                        print(
+                            f"Tokenizer '{tok}' failed: {e}\nTrying next candidate...",
+                            flush=True,
+                        )
+                if last_err:
+                    raise RuntimeError(
+                        f"Failed to load LLM with any of the provided tokenizers. "
+                        f"Last error: {last_err}"
+                    )
+            if not self.tokenizer:
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    self.tokenizer_id,
+                    revision=PHI_TOFU_REVISION,
+                    trust_remote_code=True,
+                )
+            print(
+                f"Model loaded: {self.model_id} (revision: {PHI_TOFU_REVISION})",
+                flush=True,
+            )
+        else:
+            # Use base class load() for non-Phi models
+            super().load()
+
+    def _format_chat(self, user_text: str) -> str:
         system = "You are a helpful, honest assistant."
 
         if self.target_type == "Llama-3":
@@ -105,7 +166,11 @@ class LlamaTarget(BaseLLM):
                 "<</SYS>>\n\n"
                 f"{user_text} [/INST]"
             )
-        else:  # 'other'
+        elif self.target_type == "Phi":
+            # Phi models use Question/Answer format matching TOFU training
+            # See: https://github.com/locuslab/tofu/blob/main/config/model_config.yaml
+            return f"Question: {user_text}\nAnswer:"
+        else:
             raise ValueError(
                 f"Unsupported target type for chat formatting: {self.target_type}"
             )
@@ -119,7 +184,7 @@ class LlamaTarget(BaseLLM):
                 "Batch generation is currently only implemented for 'tofu' dataset kind. For 'wmpd' please use get_answers_with_scores method, and for 'other' dataset kind please implement dataset-specific prompting and generation logic in a subclass."
             )
 
-        wrapped_prompts = [self._format_llama_chat(p) for p in prompts]
+        wrapped_prompts = [self._format_chat(p) for p in prompts]
 
         outputs = self.llm.generate(wrapped_prompts, self._sampling_params)
 
@@ -143,7 +208,7 @@ class LlamaTarget(BaseLLM):
                 "get_answers_with_scores is implemented for 'wmdp' dataset kind. For 'tofu' please use generate/generate_batch methods, and for 'other' dataset kind please implement dataset-specific prompting and evaluation logic in a subclass."
             )
 
-        questions = [self._format_llama_chat(p) for p in questions]
+        questions = [self._format_chat(p) for p in questions]
         all_scores = []
 
         # Preparation of answer variants

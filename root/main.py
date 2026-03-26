@@ -15,7 +15,7 @@ from root.approaches.naive import StaticAttack
 from root.models.hacker import HackerLLM
 from root.models.judge import JudgeLLM
 from root.models.judge_hacker_simgleton import JudgeHackerSingleton
-from root.models.target import LlamaTarget, build_target
+from root.models.target import TargetLLM, build_target
 from root.utils.data import load_sampels
 from root.utils.logger import AttackLogger
 
@@ -87,7 +87,7 @@ def run_leak(
     print("Attack initialized.")
 
     logger = AttackLogger(results_dir=config.RESULTS_DIR)
-    target: LlamaTarget = build_target(
+    target: TargetLLM = build_target(
         config.MODEL_ID, config.TOKENIZER_ID, config.DATA_KIND
     )
 
@@ -137,7 +137,7 @@ def run_rebel(
     print("Data loaded.")
 
     hacker, judge = _init_hacker_judge()
-    target: LlamaTarget = build_target(
+    target: TargetLLM = build_target(
         config.MODEL_ID, config.TOKENIZER_ID, config.DATA_KIND
     )
 

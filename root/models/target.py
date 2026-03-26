@@ -107,7 +107,8 @@ class TargetLLM(BaseLLM):
         LocusLab TOFU Phi models require a specific revision (branch) to load.
         """
         if self.target_type == "Phi":
-            # Phi TOFU models require revision parameter
+            # Phi TOFU models require revision parameter for model weights,
+            # but tokenizer should use default branch (no revision)
             if not self.llm:
                 last_err = None
                 for tok in self.tokenizers_ids:
@@ -116,6 +117,7 @@ class TargetLLM(BaseLLM):
                             model=self.model_id,
                             tokenizer=tok,
                             revision=PHI_TOFU_REVISION,
+                            tokenizer_revision=None,  # Use default branch for tokenizer
                             dtype=self.dtype,
                             tensor_parallel_size=self.tensor_parallel_size,
                             gpu_memory_utilization=self.gpu_mem_util,
@@ -139,7 +141,6 @@ class TargetLLM(BaseLLM):
             if not self.tokenizer:
                 self.tokenizer = AutoTokenizer.from_pretrained(
                     self.tokenizer_id,
-                    revision=PHI_TOFU_REVISION,
                     trust_remote_code=True,
                 )
             print(

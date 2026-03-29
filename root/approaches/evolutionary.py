@@ -314,6 +314,19 @@ class EvolutionaryAttack(BaseAttack):
 
             print("judge evaluation took:", t9 - t8)
 
+            # Save all responses from first generation (mirrors WMDP behavior)
+            if generation_i == 0:
+                zero_generation_dir = config.RESULTS_DIR / "zero_generation"
+                os.makedirs(zero_generation_dir, exist_ok=True)
+                with open(zero_generation_dir / f"{idx}", "w", encoding="utf-8") as f:
+                    for ii, eval_attack in enumerate(evaluated_attacks):
+                        entry = {
+                            "attack": attacks[ii],
+                            "model_reply": attacks_results[ii],
+                            "eval": eval_attack,
+                        }
+                        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
             evaluated_attacks = np.asarray(evaluated_attacks, dtype=object)
 
             top_k_indexies_mask: np.ndarray
